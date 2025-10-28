@@ -1,0 +1,10 @@
+automation-server-client @ git+https://github.com/odense-rpa/automation-server-client.git@v0.2.0
+mbu-dev-shared-components[solteqtand]>=4.2.1
+mbu_msoffice_integration>=1.0.1
+mbu-rpa-core
+ruff
+pillow
+pandas
+psutil
+sqlalchemy>=2.0.20
+sqlalchemy[asyncio]>=2.0.20
