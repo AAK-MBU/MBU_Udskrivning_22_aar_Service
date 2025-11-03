@@ -9,8 +9,30 @@ from automation_server_client._models import Workqueue
 
 logger = logging.getLogger(__name__)
 
+# !!! REMOVE !!! #
+os.environ["ATS_TOKEN"] = os.getenv("ATS_TOKEN_DEV")
+os.environ["ATS_URL"] = os.getenv("ATS_URL_DEV")
+# !!! REMOVE !!! #
+
 ATS_TOKEN = os.getenv("ATS_TOKEN")
 ATS_URL = os.getenv("ATS_URL")
+
+
+# ╔══════════════════════════════════════════════╗
+# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
+# ╚══════════════════════════════════════════════╝
+### This block disables SSL verification and overrides env vars ###
+import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+_old_request = requests.Session.request
+def unsafe_request(self, *args, **kwargs):
+    kwargs['verify'] = False
+    return _old_request(self, *args, **kwargs)
+requests.Session.request = unsafe_request
+# ╔══════════════════════════════════════════════╗
+# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
+# ╚══════════════════════════════════════════════╝
 
 
 def fetch_workqueue(workqueue_name: str):

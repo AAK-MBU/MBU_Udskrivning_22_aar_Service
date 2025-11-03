@@ -100,7 +100,6 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
 
         while self.running:
             try:
-                # Reuse your existing main logic:
                 for workqueue_name in ["faglig_vurdering_udfoert", "formular_indsendt"]:
                     workqueue = helper_functions.fetch_workqueue(workqueue_name)
                     workitems = helper_functions.fetch_workqueue_workitems(workqueue)
@@ -111,7 +110,7 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
                     if workqueue_name == "formular_indsendt":
                         formular_indsendt.main(workitems)
 
-                # Sleep for 5 minutes before next run
+                # Sleep for 10 seconds before next run
                 time.sleep(10)
 
             except Exception as e:

@@ -6,6 +6,8 @@ from automation_server_client._models import WorkItem
 
 from mbu_dev_shared_components.solteqtand.database.db_handler import SolteqTandDatabase
 
+import helper_functions
+
 SOLTEQ_TAND_DB_CONN_STRING = os.getenv("DBCONNECTIONSTRINGSOLTEQTAND")
 
 
@@ -25,7 +27,17 @@ def main(workitems):
         citizen_bookings = check_if_faglig_vurdering_udfoert(db_handler=db_handler, cpr=citizen_cpr)
 
         if citizen_bookings:
-            item.update_status(status="new", message="Status opdateret af service")
+            for i, book in enumerate(citizen_bookings):
+                print(f"i: {i}")
+                print("printing book:")
+                print(book)
+
+            if len(citizen_bookings) > 1:
+                item.fail(message="Borgeren har mere end 1 aftale med aftaletype 'Z - 22 år - Borger fyldt 22 år'!")
+
+            else:
+                if citizen_bookings[0].get("Status") in ("632", "634"):
+                    item.update_status(status="new", message="Status opdateret af service")
 
 
 def check_if_faglig_vurdering_udfoert(db_handler: SolteqTandDatabase, cpr: str):
@@ -48,10 +60,18 @@ def check_if_faglig_vurdering_udfoert(db_handler: SolteqTandDatabase, cpr: str):
         WHERE
             cpr = ?
             AND Description = 'Z - 22 år - Borger fyldt 22 år'
-            AND (Status = '632' OR Status = '634')
         ORDER BY
             CreatedDateTime DESC
     """
 
     # pylint: disable=protected-access
     return db_handler._execute_query(query, params=(cpr,))
+
+
+if __name__ == "__main__":
+    workqueue_name = "faglig_vurdering_udfoert"
+    workqueue = helper_functions.fetch_workqueue(workqueue_name)
+    test_workitems = helper_functions.fetch_workqueue_workitems(workqueue)
+
+    if workqueue_name == "faglig_vurdering_udfoert":
+        main(test_workitems)
