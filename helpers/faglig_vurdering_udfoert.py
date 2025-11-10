@@ -6,7 +6,7 @@ from automation_server_client._models import WorkItem
 
 from mbu_dev_shared_components.solteqtand.database.db_handler import SolteqTandDatabase
 
-import helper_functions
+from helpers import helper_functions
 
 SOLTEQ_TAND_DB_CONN_STRING = os.getenv("DBCONNECTIONSTRINGSOLTEQTAND")
 
@@ -15,7 +15,7 @@ def main(workitems):
     """Main function to execute the script."""
 
     for item_dict in workitems:
-        if item_dict.get("status") != "pending user action":
+        if item_dict.get("status") not in ("pending user action", "failed"):
             continue
 
         item = WorkItem(**item_dict)
@@ -27,17 +27,19 @@ def main(workitems):
         citizen_bookings = check_if_faglig_vurdering_udfoert(db_handler=db_handler, cpr=citizen_cpr)
 
         if citizen_bookings:
-            for i, book in enumerate(citizen_bookings):
-                print(f"i: {i}")
-                print("printing book:")
-                print(book)
-
             if len(citizen_bookings) > 1:
+                print(f"Citizen {citizen_cpr} has more than 1 booking with aftaletype 'Z - 22 år - Borger fyldt 22 år'!")
+
                 item.fail(message="Borgeren har mere end 1 aftale med aftaletype 'Z - 22 år - Borger fyldt 22 år'!")
 
             else:
                 if citizen_bookings[0].get("Status") in ("632", "634"):
+                    print(f"Faglig vurdering has been completed for citizen {citizen_cpr} - Updating workitem status...")
+
                     item.update_status(status="new", message="Status opdateret af service")
+
+                else:
+                    print(f"Faglig vurdering not yet completed for citizen {citizen_cpr} - leaving workitem as is.")
 
 
 def check_if_faglig_vurdering_udfoert(db_handler: SolteqTandDatabase, cpr: str):
@@ -66,12 +68,3 @@ def check_if_faglig_vurdering_udfoert(db_handler: SolteqTandDatabase, cpr: str):
 
     # pylint: disable=protected-access
     return db_handler._execute_query(query, params=(cpr,))
-
-
-if __name__ == "__main__":
-    workqueue_name = "faglig_vurdering_udfoert"
-    workqueue = helper_functions.fetch_workqueue(workqueue_name)
-    test_workitems = helper_functions.fetch_workqueue_workitems(workqueue)
-
-    if workqueue_name == "faglig_vurdering_udfoert":
-        main(test_workitems)

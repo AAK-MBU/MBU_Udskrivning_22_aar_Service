@@ -17,22 +17,8 @@ os.environ["ATS_URL"] = os.getenv("ATS_URL_DEV")
 ATS_TOKEN = os.getenv("ATS_TOKEN")
 ATS_URL = os.getenv("ATS_URL")
 
-
-# ╔══════════════════════════════════════════════╗
-# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
-# ╚══════════════════════════════════════════════╝
-### This block disables SSL verification and overrides env vars ###
-import requests
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-_old_request = requests.Session.request
-def unsafe_request(self, *args, **kwargs):
-    kwargs['verify'] = False
-    return _old_request(self, *args, **kwargs)
-requests.Session.request = unsafe_request
-# ╔══════════════════════════════════════════════╗
-# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
-# ╚══════════════════════════════════════════════╝
+DBCONNECTIONSTRINGPROD = os.getenv("DBCONNECTIONSTRINGPROD")
+DBCONNECTIONSTRINGDEV = os.getenv("DBCONNECTIONSTRINGDEV")
 
 
 def fetch_workqueue(workqueue_name: str):
@@ -42,7 +28,7 @@ def fetch_workqueue(workqueue_name: str):
 
     headers = {"Authorization": f"Bearer {ATS_TOKEN}"}
 
-    full_url = f"{ATS_URL}/workqueues/by_name/tan.udskrivning22.{workqueue_name}"
+    full_url = f"{ATS_URL}/workqueues/by_name/{workqueue_name}"
 
     response_json = requests.get(full_url, headers=headers, timeout=60).json()
     workqueue_id = response_json.get("id")
@@ -84,3 +70,42 @@ def fetch_workqueue_workitems(workqueue: Workqueue):
         page += 1
 
     return all_items
+
+
+def get_workqueue_item_references(workqueue: Workqueue):
+    """
+    Retrieve items from the specified workqueue.
+    If the queue is empty, return an empty list.
+    """
+
+    url = ATS_URL
+    token = ATS_TOKEN
+
+    if not url or not token:
+        raise OSError("ATS_URL or ATS_TOKEN is not set in the environment")
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    workqueue_items = set()
+
+    page = 1
+    size = 200  # max allowed
+
+    while True:
+        full_url = f"{url}/workqueues/{workqueue.id}/items?page={page}&size={size}"
+        response = requests.get(full_url, headers=headers, timeout=60)
+        response.raise_for_status()
+
+        res_json = response.json().get("items", [])
+
+        if not res_json:
+            break
+
+        for row in res_json:
+            ref = row.get("reference")
+            if ref:
+                workqueue_items.add(ref)
+
+        page += 1
+
+    return workqueue_items

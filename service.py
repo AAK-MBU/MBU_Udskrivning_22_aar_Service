@@ -3,12 +3,14 @@ Windows Service for continuously fetching and processing workitems from ATS.
 
 This script defines a Windows service that:
 - Starts automatically (or manually) on a Windows machine.
-- Runs your Python process logic continuously in the background.
+- Runs your process logic continuously in the background.
 - Stops cleanly when Windows sends a stop signal.
 
 The service uses pywin32's `ServiceFramework` to integrate with the
 Windows Service Control Manager (SCM), which handles start/stop events.
 """
+
+import sys
 
 import time
 import win32serviceutil
@@ -16,7 +18,24 @@ import win32service
 import win32event
 import servicemanager
 
-from helpers import faglig_vurdering_udfoert, formular_indsendt, helper_functions
+from helpers import helper_functions, faglig_vurdering_udfoert, get_forms, add_to_final_queue
+
+
+# ╔══════════════════════════════════════════════╗
+# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
+# ╚══════════════════════════════════════════════╝
+### This block disables SSL verification and overrides env vars ###
+import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+_old_request = requests.Session.request
+def unsafe_request(self, *args, **kwargs):
+    kwargs['verify'] = False
+    return _old_request(self, *args, **kwargs)
+requests.Session.request = unsafe_request
+# ╔══════════════════════════════════════════════╗
+# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
+# ╚══════════════════════════════════════════════╝
 
 
 class WorkqueueService(win32serviceutil.ServiceFramework):
@@ -39,7 +58,7 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
     _svc_display_name_ = "MBU Udskrivning 22 år - Workqueue Processing Service"
     _svc_description_ = "Fetches and processes workitems from ATS continuously"
 
-    def __init__(self, args):
+    def __init__(self, args=None, mock_run=False):
         """
         Called once when Windows starts the service.
 
@@ -48,7 +67,8 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
           - A `running` flag that controls the main loop.
         """
 
-        super().__init__(args)
+        if not mock_run:
+            super().__init__(args)
 
         self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
 
@@ -100,18 +120,43 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
 
         while self.running:
             try:
-                for workqueue_name in ["faglig_vurdering_udfoert", "formular_indsendt"]:
+                # Find workitems with pending status and reevaluate them - if completed, update status to new so workitem reruns
+                print("Step 1 -> Fetching workitems for 'faglig_vurdering_udfoert' workqueue...")
+                workqueue_name = "tan.udskrivning22.faglig_vurdering_udfoert"
+
+                workqueue = helper_functions.fetch_workqueue(workqueue_name)
+                workitems = helper_functions.fetch_workqueue_workitems(workqueue)
+
+                faglig_vurdering_udfoert.main(workitems)
+
+                # Step 2 -> Get formular submissions for the 2 udskrivning formulars and add workitems to journalization queue
+                print("Step 2 -> Get formular submissions for the 2 udskrivning formulars and add workitems to journalization queue")
+                form_results = get_forms.get_forms()
+                print(f"found {len(form_results)} <-- form_Results")
+                for res in form_results:
+                    workqueue_name = "jou.solteqtand.main"
                     workqueue = helper_functions.fetch_workqueue(workqueue_name)
-                    workitems = helper_functions.fetch_workqueue_workitems(workqueue)
+                    existing_refs = {str(r) for r in helper_functions.get_workqueue_item_references(workqueue)}
 
-                    if workqueue_name == "faglig_vurdering_udfoert":
-                        faglig_vurdering_udfoert.main(workitems)
+                    form_id = res.get("form_id")
+                    if form_id != "3d55417d-ffe1-4485-b529-592ac20f767c":
+                        continue
 
-                    if workqueue_name == "formular_indsendt":
-                        formular_indsendt.main(workitems)
+                    if form_id in existing_refs:
+                        print(f"Workitem for form_id {form_id} already exists in journalizing queue — skipping creation.")
 
-                # Sleep for 10 seconds before next run
-                time.sleep(10)
+                    else:
+                        workqueue.add_item(data={"item": {"reference": form_id, "data": res}}, reference=form_id)
+
+                        print(f"Created new workitem for form_id {form_id} in journalizing queue.")
+
+                # Fetch process dashboard, check if pending citizens are ready to be completed, and create workitems in the final workqueue
+                print("Step 3 -> Finding ready process runs and adding workitems to final queue...")
+                add_to_final_queue.main()
+
+                # Sleep for 5 minutes before next run
+                print("Sleeping for 5 minutes...\n")
+                time.sleep(300)
 
             except Exception as e:
                 servicemanager.LogErrorMsg(f"Error in service loop: {e}")
@@ -119,4 +164,11 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
 
 
 if __name__ == '__main__':
-    win32serviceutil.HandleCommandLine(WorkqueueService)
+    if len(sys.argv) > 1:
+        # e.g. "install", "start", "stop" → real service command
+        win32serviceutil.HandleCommandLine(WorkqueueService)
+
+    else:
+        # Local mock mode
+        service = WorkqueueService(mock_run=True)
+        service.main()
