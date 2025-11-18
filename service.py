@@ -25,14 +25,14 @@ from helpers import helper_functions, faglig_vurdering_udfoert, get_forms, add_t
 # ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
 # ╚══════════════════════════════════════════════╝
 ### This block disables SSL verification and overrides env vars ###
-import requests
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-_old_request = requests.Session.request
-def unsafe_request(self, *args, **kwargs):
-    kwargs['verify'] = False
-    return _old_request(self, *args, **kwargs)
-requests.Session.request = unsafe_request
+# import requests
+# import urllib3
+# urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# _old_request = requests.Session.request
+# def unsafe_request(self, *args, **kwargs):
+#     kwargs['verify'] = False
+#     return _old_request(self, *args, **kwargs)
+# requests.Session.request = unsafe_request
 # ╔══════════════════════════════════════════════╗
 # ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
 # ╚══════════════════════════════════════════════╝
@@ -139,9 +139,6 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
                     existing_refs = {str(r) for r in helper_functions.get_workqueue_item_references(workqueue)}
 
                     form_id = res.get("form_id")
-                    if form_id != "3d55417d-ffe1-4485-b529-592ac20f767c":
-                        continue
-
                     if form_id in existing_refs:
                         print(f"Workitem for form_id {form_id} already exists in journalizing queue — skipping creation.")
 
@@ -151,6 +148,7 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
                         print(f"Created new workitem for form_id {form_id} in journalizing queue.")
 
                 # Fetch process dashboard, check if pending citizens are ready to be completed, and create workitems in the final workqueue
+                # Step 3 -> Finding ready process runs and adding workitems to final queue...
                 print("Step 3 -> Finding ready process runs and adding workitems to final queue...")
                 add_to_final_queue.main()
 
