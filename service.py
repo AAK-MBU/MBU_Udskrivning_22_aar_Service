@@ -21,23 +21,6 @@ import servicemanager
 from helpers import helper_functions, faglig_vurdering_udfoert, get_forms, add_to_final_queue
 
 
-# ╔══════════════════════════════════════════════╗
-# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
-# ╚══════════════════════════════════════════════╝
-### This block disables SSL verification and overrides env vars ###
-# import requests
-# import urllib3
-# urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-# _old_request = requests.Session.request
-# def unsafe_request(self, *args, **kwargs):
-#     kwargs['verify'] = False
-#     return _old_request(self, *args, **kwargs)
-# requests.Session.request = unsafe_request
-# ╔══════════════════════════════════════════════╗
-# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
-# ╚══════════════════════════════════════════════╝
-
-
 class WorkqueueService(win32serviceutil.ServiceFramework):
     """
     Defines the Windows service and its lifecycle behavior.
