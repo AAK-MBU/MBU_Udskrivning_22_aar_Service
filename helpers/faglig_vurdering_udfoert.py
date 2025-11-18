@@ -6,8 +6,6 @@ from automation_server_client._models import WorkItem
 
 from mbu_dev_shared_components.solteqtand.database.db_handler import SolteqTandDatabase
 
-from helpers import helper_functions
-
 SOLTEQ_TAND_DB_CONN_STRING = os.getenv("DBCONNECTIONSTRINGSOLTEQTAND")
 
 
