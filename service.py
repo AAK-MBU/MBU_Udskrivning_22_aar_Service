@@ -104,13 +104,14 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
         while self.running:
             try:
                 # Find workitems with pending status and reevaluate them - if completed, update status to new so workitem reruns
-                print("Step 1 -> Fetching workitems for 'faglig_vurdering_udfoert' workqueue...")
+                print("Step 1 -> Fetching workitems for 'faglig_vurdering_udfoert' workqueue and checking updates ...")
                 workqueue_name = "tan.udskrivning22.faglig_vurdering_udfoert"
 
                 workqueue = helper_functions.fetch_workqueue(workqueue_name)
                 workitems = helper_functions.fetch_workqueue_workitems(workqueue)
 
                 faglig_vurdering_udfoert.main(workitems)
+                print("Step 1 DONE")
 
                 # Step 2 -> Get formular submissions for the 2 udskrivning formulars and add workitems to journalization queue
                 print("Step 2 -> Get formular submissions for the 2 udskrivning formulars and add workitems to journalization queue")
