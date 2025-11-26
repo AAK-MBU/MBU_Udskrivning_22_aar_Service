@@ -8,3 +8,4 @@ pandas
 psutil
 sqlalchemy>=2.0.20
 sqlalchemy[asyncio]>=2.0.20
+pywin32>=306

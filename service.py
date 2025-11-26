@@ -13,6 +13,7 @@ Windows Service Control Manager (SCM), which handles start/stop events.
 import sys
 
 import time
+
 import win32serviceutil
 import win32service
 import win32event
