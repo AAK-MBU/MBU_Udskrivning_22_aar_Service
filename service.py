@@ -131,11 +131,13 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
                         workqueue.add_item(data={"item": {"reference": form_id, "data": res}}, reference=form_id)
 
                         print(f"Created new workitem for form_id {form_id} in journalizing queue.")
+                print("Step 2 DONE")
 
                 # Fetch process dashboard, check if pending citizens are ready to be completed, and create workitems in the final workqueue
                 # Step 3 -> Finding ready process runs and adding workitems to final queue...
                 print("Step 3 -> Finding ready process runs and adding workitems to final queue...")
                 add_to_final_queue.main()
+                print("Step 3 DONE")
 
                 # Sleep for 5 minutes before next run
                 print("Sleeping for 5 minutes...\n")
