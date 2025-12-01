@@ -19,6 +19,8 @@ import win32service
 import win32event
 import servicemanager
 
+from config import PATH_TO_PYTHON_SERVICE
+
 from helpers import helper_functions, faglig_vurdering_udfoert, get_forms, add_to_final_queue
 
 
@@ -41,6 +43,9 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
     _svc_name_ = "WorkqueueService"
     _svc_display_name_ = "MBU Udskrivning 22 år - Workqueue Processing Service"
     _svc_description_ = "Fetches and processes workitems from ATS continuously"
+
+    if not hasattr(sys, 'frozen'):
+        _exe_name_ = PATH_TO_PYTHON_SERVICE
 
     def __init__(self, args=None, mock_run=False):
         """
