@@ -13,29 +13,15 @@ Windows Service Control Manager (SCM), which handles start/stop events.
 import sys
 
 import time
+
 import win32serviceutil
 import win32service
 import win32event
 import servicemanager
 
+from config import PATH_TO_PYTHON_SERVICE
+
 from helpers import helper_functions, faglig_vurdering_udfoert, get_forms, add_to_final_queue
-
-
-# ╔══════════════════════════════════════════════╗
-# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
-# ╚══════════════════════════════════════════════╝
-### This block disables SSL verification and overrides env vars ###
-import requests
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-_old_request = requests.Session.request
-def unsafe_request(self, *args, **kwargs):
-    kwargs['verify'] = False
-    return _old_request(self, *args, **kwargs)
-requests.Session.request = unsafe_request
-# ╔══════════════════════════════════════════════╗
-# ║ 🔥 REMOVE BEFORE DEPLOYMENT (TEMP OVERRIDES) 🔥 ║
-# ╚══════════════════════════════════════════════╝
 
 
 class WorkqueueService(win32serviceutil.ServiceFramework):
@@ -57,6 +43,9 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
     _svc_name_ = "WorkqueueService"
     _svc_display_name_ = "MBU Udskrivning 22 år - Workqueue Processing Service"
     _svc_description_ = "Fetches and processes workitems from ATS continuously"
+
+    if not hasattr(sys, 'frozen'):
+        _exe_name_ = PATH_TO_PYTHON_SERVICE
 
     def __init__(self, args=None, mock_run=False):
         """
@@ -121,13 +110,14 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
         while self.running:
             try:
                 # Find workitems with pending status and reevaluate them - if completed, update status to new so workitem reruns
-                print("Step 1 -> Fetching workitems for 'faglig_vurdering_udfoert' workqueue...")
+                print("Step 1 -> Fetching workitems for 'faglig_vurdering_udfoert' workqueue and checking updates ...")
                 workqueue_name = "tan.udskrivning22.faglig_vurdering_udfoert"
 
                 workqueue = helper_functions.fetch_workqueue(workqueue_name)
                 workitems = helper_functions.fetch_workqueue_workitems(workqueue)
 
                 faglig_vurdering_udfoert.main(workitems)
+                print("Step 1 DONE")
 
                 # Step 2 -> Get formular submissions for the 2 udskrivning formulars and add workitems to journalization queue
                 print("Step 2 -> Get formular submissions for the 2 udskrivning formulars and add workitems to journalization queue")
@@ -139,9 +129,6 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
                     existing_refs = {str(r) for r in helper_functions.get_workqueue_item_references(workqueue)}
 
                     form_id = res.get("form_id")
-                    if form_id != "3d55417d-ffe1-4485-b529-592ac20f767c":
-                        continue
-
                     if form_id in existing_refs:
                         print(f"Workitem for form_id {form_id} already exists in journalizing queue — skipping creation.")
 
@@ -149,10 +136,13 @@ class WorkqueueService(win32serviceutil.ServiceFramework):
                         workqueue.add_item(data={"item": {"reference": form_id, "data": res}}, reference=form_id)
 
                         print(f"Created new workitem for form_id {form_id} in journalizing queue.")
+                print("Step 2 DONE")
 
                 # Fetch process dashboard, check if pending citizens are ready to be completed, and create workitems in the final workqueue
+                # Step 3 -> Finding ready process runs and adding workitems to final queue...
                 print("Step 3 -> Finding ready process runs and adding workitems to final queue...")
                 add_to_final_queue.main()
+                print("Step 3 DONE")
 
                 # Sleep for 5 minutes before next run
                 print("Sleeping for 5 minutes...\n")

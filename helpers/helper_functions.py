@@ -9,11 +9,6 @@ from automation_server_client._models import Workqueue
 
 logger = logging.getLogger(__name__)
 
-# !!! REMOVE !!! #
-os.environ["ATS_TOKEN"] = os.getenv("ATS_TOKEN_DEV")
-os.environ["ATS_URL"] = os.getenv("ATS_URL_DEV")
-# !!! REMOVE !!! #
-
 ATS_TOKEN = os.getenv("ATS_TOKEN")
 ATS_URL = os.getenv("ATS_URL")
 

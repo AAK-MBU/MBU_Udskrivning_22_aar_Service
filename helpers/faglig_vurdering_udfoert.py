@@ -4,9 +4,7 @@ import os
 
 from automation_server_client._models import WorkItem
 
-from mbu_dev_shared_components.solteqtand.database.db_handler import SolteqTandDatabase
-
-from helpers import helper_functions
+from mbu_solteqtand_shared_components.database.db_handler import SolteqTandDatabase
 
 SOLTEQ_TAND_DB_CONN_STRING = os.getenv("DBCONNECTIONSTRINGSOLTEQTAND")
 
@@ -24,7 +22,7 @@ def main(workitems):
 
         db_handler = SolteqTandDatabase(conn_str=SOLTEQ_TAND_DB_CONN_STRING)
 
-        citizen_bookings = check_if_faglig_vurdering_udfoert(db_handler=db_handler, cpr=citizen_cpr)
+        citizen_bookings = _check_if_faglig_vurdering_udfoert(db_handler=db_handler, cpr=citizen_cpr)
 
         if citizen_bookings:
             if len(citizen_bookings) > 1:
@@ -42,7 +40,7 @@ def main(workitems):
                     print(f"Faglig vurdering not yet completed for citizen {citizen_cpr} - leaving workitem as is.")
 
 
-def check_if_faglig_vurdering_udfoert(db_handler: SolteqTandDatabase, cpr: str):
+def _check_if_faglig_vurdering_udfoert(db_handler: SolteqTandDatabase, cpr: str):
     """
     Check if a citizen has a booking with the specified aftaletype and -status
     """
@@ -56,9 +54,9 @@ def check_if_faglig_vurdering_udfoert(db_handler: SolteqTandDatabase, cpr: str):
         FROM
             [tmtdata_prod].[dbo].[BOOKING] b
         JOIN
-            PATIENT p ON p.patientId = b.patientId
+            [tmtdata_prod].[dbo].[PATIENT] p ON p.patientId = b.patientId
         JOIN
-            BOOKINGTYPE bt ON bt.BookingTypeID = b.BookingTypeID
+            [tmtdata_prod].[dbo].[BOOKINGTYPE] bt ON bt.BookingTypeID = b.BookingTypeID
         WHERE
             cpr = ?
             AND Description = 'Z - 22 år - Borger fyldt 22 år'
