@@ -1,5 +1,7 @@
 # MBU Udskrivning 22 år – Workqueue Processing Service
 
+version 2.0.0
+
 ---
 
 ## 🔍 Overview
