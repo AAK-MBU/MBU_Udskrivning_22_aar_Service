@@ -46,14 +46,13 @@ def main():
 
     print(f"found {len(ready_process_runs)} ready process runs.")
 
+    workqueue_name = "tan.udskrivning22.journal_og_roentgen_afleveret"
+    workqueue = helper_functions.fetch_workqueue(workqueue_name)
+    existing_refs = {str(r) for r in helper_functions.get_workqueue_item_references(workqueue)}
+
     for process_run in ready_process_runs:
         meta = process_run.get("meta", {})
         cpr = meta.get("cpr")
-
-        workqueue_name = "tan.udskrivning22.journal_og_roentgen_afleveret"
-        workqueue = helper_functions.fetch_workqueue(workqueue_name)
-
-        existing_refs = {str(r) for r in helper_functions.get_workqueue_item_references(workqueue)}
 
         if cpr in existing_refs:
             print(f"Workitem for CPR {cpr} already exists in final queue — skipping creation.")

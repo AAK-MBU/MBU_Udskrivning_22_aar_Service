@@ -1,164 +1,102 @@
-"""
-Windows Service for continuously fetching and processing workitems from ATS.
-
-This script defines a Windows service that:
-- Starts automatically (or manually) on a Windows machine.
-- Runs your process logic continuously in the background.
-- Stops cleanly when Windows sends a stop signal.
-
-The service uses pywin32's `ServiceFramework` to integrate with the
-Windows Service Control Manager (SCM), which handles start/stop events.
-"""
-
-import sys
-
+import os
+import signal
 import time
-
-import win32serviceutil
-import win32service
-import win32event
-import servicemanager
-
-from config import PATH_TO_PYTHON_SERVICE
+import logging
 
 from helpers import helper_functions, faglig_vurdering_udfoert, get_forms, add_to_final_queue
 
+from config import PATH_TO_REQUESTS_CA_BUNDLE
 
-class WorkqueueService(win32serviceutil.ServiceFramework):
+os.environ["REQUESTS_CA_BUNDLE"] = PATH_TO_REQUESTS_CA_BUNDLE
+
+logging.basicConfig(
+    filename="service.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+
+running = True
+
+
+def stop_handler(signum, frame):
     """
-    Defines the Windows service and its lifecycle behavior.
+    Docstring for stop_handler
 
-    This class connects the Python logic to Windows' service management layer.
-
-    When the service is installed and started using:
-        python service.py install
-        python service.py start
-
-    Windows will:
-      1. Instantiate this class.
-      2. Call `SvcDoRun()` to start it.
-      3. Call `SvcStop()` when stopping it.
+    :param signum: Description
+    :param frame: Description
     """
 
-    _svc_name_ = "WorkqueueService"
-    _svc_display_name_ = "MBU Udskrivning 22 år - Workqueue Processing Service"
-    _svc_description_ = "Fetches and processes workitems from ATS continuously"
-
-    if not hasattr(sys, 'frozen'):
-        _exe_name_ = PATH_TO_PYTHON_SERVICE
-
-    def __init__(self, args=None, mock_run=False):
-        """
-        Called once when Windows starts the service.
-
-        Sets up:
-          - An event (`hWaitStop`) to signal when the service should stop.
-          - A `running` flag that controls the main loop.
-        """
-
-        if not mock_run:
-            super().__init__(args)
-
-        self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
-
-        self.running = True
-
-    def SvcStop(self):
-        """
-        Called when Windows sends a "Stop Service" signal.
-
-        This method:
-          - Notifies Windows that the service is stopping.
-          - Logs a message to the Windows Event Log.
-          - Sets `self.running = False` so the main loop can exit gracefully.
-        """
-
-        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
-
-        servicemanager.LogInfoMsg("Workqueue service stopping...")
-
-        self.running = False
-
-        win32event.SetEvent(self.hWaitStop)
-
-    def SvcDoRun(self):
-        """
-        Called when Windows starts the service.
-
-        Basically the "main entry point" inside the Windows context.
-        It logs a message and starts the actual service logic in `main()`.
-        """
-
-        servicemanager.LogInfoMsg("Workqueue service starting...")
-
-        self.main()
-
-    def main(self):
-        """
-        Core logic of the service — runs continuously until stopped.
-
-        This loop:
-          1. Iterates over a list of predefined workqueues.
-          2. Fetches workitems from ATS for each queue.
-          3. Passes them to the appropriate handler function.
-          4. Waits 5 minutes before repeating.
-
-        If an exception occurs, it logs the error and waits 60 seconds
-        before trying again (this prevents the service from crashing).
-        """
-
-        while self.running:
-            try:
-                # Find workitems with pending status and reevaluate them - if completed, update status to new so workitem reruns
-                print("Step 1 -> Fetching workitems for 'faglig_vurdering_udfoert' workqueue and checking updates ...")
-                workqueue_name = "tan.udskrivning22.faglig_vurdering_udfoert"
-
-                workqueue = helper_functions.fetch_workqueue(workqueue_name)
-                workitems = helper_functions.fetch_workqueue_workitems(workqueue)
-
-                faglig_vurdering_udfoert.main(workitems)
-                print("Step 1 DONE")
-
-                # Step 2 -> Get formular submissions for the 2 udskrivning formulars and add workitems to journalization queue
-                print("Step 2 -> Get formular submissions for the 2 udskrivning formulars and add workitems to journalization queue")
-                form_results = get_forms.get_forms()
-                print(f"found {len(form_results)} <-- form_Results")
-                for res in form_results:
-                    workqueue_name = "jou.solteqtand.main"
-                    workqueue = helper_functions.fetch_workqueue(workqueue_name)
-                    existing_refs = {str(r) for r in helper_functions.get_workqueue_item_references(workqueue)}
-
-                    form_id = res.get("form_id")
-                    if form_id in existing_refs:
-                        print(f"Workitem for form_id {form_id} already exists in journalizing queue — skipping creation.")
-
-                    else:
-                        workqueue.add_item(data={"item": {"reference": form_id, "data": res}}, reference=form_id)
-
-                        print(f"Created new workitem for form_id {form_id} in journalizing queue.")
-                print("Step 2 DONE")
-
-                # Fetch process dashboard, check if pending citizens are ready to be completed, and create workitems in the final workqueue
-                # Step 3 -> Finding ready process runs and adding workitems to final queue...
-                print("Step 3 -> Finding ready process runs and adding workitems to final queue...")
-                add_to_final_queue.main()
-                print("Step 3 DONE")
-
-                # Sleep for 5 minutes before next run
-                print("Sleeping for 5 minutes...\n")
-                time.sleep(300)
-
-            except Exception as e:
-                servicemanager.LogErrorMsg(f"Error in service loop: {e}")
-                time.sleep(60)
+    global running
+    logging.info("Windows shutdown signal received. Stopping service...")
+    running = False
 
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        # e.g. "install", "start", "stop" → real service command
-        win32serviceutil.HandleCommandLine(WorkqueueService)
+signal.signal(signal.SIGTERM, stop_handler)
+signal.signal(signal.SIGINT, stop_handler)
 
-    else:
-        # Local mock mode
-        service = WorkqueueService(mock_run=True)
-        service.main()
+
+def main_loop():
+    """
+    Docstring for main_loop
+    """
+
+    logging.info("Workqueue service started successfully.")
+
+    while running:
+        try:
+            # Step 1
+            logging.info("Step 1 → Checking 'faglig_vurdering_udfoert' workqueue...")
+            workqueue_name = "tan.udskrivning22.faglig_vurdering_udfoert"
+
+            workqueue = helper_functions.fetch_workqueue(workqueue_name)
+            workitems = helper_functions.fetch_workqueue_workitems(workqueue)
+
+            faglig_vurdering_udfoert.main(workitems)
+            logging.info("Step 1 DONE.")
+
+            # Step 2
+            logging.info("Step 2 → Checking formular submissions...")
+            form_results = get_forms.get_forms()
+            logging.info(f"Found {len(form_results)} forms.")
+
+            journalising_workqueue_name = "jou.solteqtand.main"
+            journalising_workqueue = helper_functions.fetch_workqueue(journalising_workqueue_name)
+            existing_refs = {str(r) for r in helper_functions.get_workqueue_item_references(journalising_workqueue)}
+
+            for res in form_results:
+                form_id = res.get("form_id")
+
+                if form_id in existing_refs:
+                    logging.info(f"Form {form_id} already exists → skipping.")
+
+                else:
+                    journalising_workqueue.add_item(data={"item": {"reference": form_id, "data": res}}, reference=form_id)
+                    logging.info(f"Created new workitem for form_id {form_id}.")
+
+            logging.info("Step 2 DONE.")
+
+            # Step 3
+            logging.info("Step 3 → Processing final queue...")
+            add_to_final_queue.main()
+            logging.info("Step 3 DONE.")
+
+            # Sleep 5 minutes
+            logging.info("Sleeping for 5 minutes...")
+            for _ in range(300):
+                if not running:
+                    break
+                time.sleep(1)
+
+        except Exception as e:
+            logging.error(f"Error in worker loop: {e}")
+            logging.info("Retrying in 60 seconds...")
+            for _ in range(60):
+                if not running:
+                    break
+                time.sleep(1)
+
+    logging.info("Workqueue service stopped cleanly.")
+
+
+if __name__ == "__main__":
+    main_loop()
