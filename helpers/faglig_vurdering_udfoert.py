@@ -33,7 +33,7 @@ def main(workitems):
                 item.fail(message="Borgeren har mere end 1 aftale med aftaletype 'Z - 22 år - Borger fyldt 22 år'!")
 
             else:
-                if citizen_bookings[0].get("Status") in ("632", "634"):
+                if int(citizen_bookings[0].get("Status")) in (632, 634):
                     logging.info(f"Faglig vurdering has been completed for citizen {citizen_cpr} - Updating workitem status...")
 
                     item.update_status(status="new", message="Status opdateret af service")
