@@ -2,6 +2,8 @@
 
 import os
 
+import logging
+
 import requests
 
 from helpers import helper_functions
@@ -44,7 +46,7 @@ def main():
         journal_og_roentgen_afleveret_og_journaliseret_step_id=journal_og_roentgen_afleveret_og_journaliseret_step_id
     )
 
-    print(f"found {len(ready_process_runs)} ready process runs.")
+    logging.info(f"found {len(ready_process_runs)} ready process runs.")
 
     workqueue_name = "tan.udskrivning22.journal_og_roentgen_afleveret"
     workqueue = helper_functions.fetch_workqueue(workqueue_name)
@@ -55,13 +57,13 @@ def main():
         cpr = meta.get("cpr")
 
         if cpr in existing_refs:
-            print(f"Workitem for CPR {cpr} already exists in final queue — skipping creation.")
+            logging.info(f"Workitem for CPR {cpr} already exists in final queue — skipping creation.")
 
             continue
 
         workqueue.add_item(data={"item": {"reference": cpr, "data": meta}}, reference=cpr)
 
-        print(f"Created new workitem for CPR {cpr} in final queue.")
+        logging.info(f"Created new workitem for CPR {cpr} in final queue.")
 
 
 def _find_process_by_name(base_url: str, process_name: str):
@@ -82,7 +84,7 @@ def _find_process_by_name(base_url: str, process_name: str):
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code != 200:
-            print(f"⚠️ Request failed with status {response.status_code}")
+            logging.info(f"Request failed with status {response.status_code}")
 
             break
 
@@ -95,7 +97,7 @@ def _find_process_by_name(base_url: str, process_name: str):
 
         # stop if there’s no next page
         if not data.get("next"):
-            print("❌ Reached the last page — process not found.")
+            logging.info("Reached the last page — process not found.")
 
             break
 
@@ -130,7 +132,7 @@ def _find_ready_process_runs(
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code != 200:
-            print(f"⚠️ Request failed with status {response.status_code}")
+            logging.info(f"Request failed with status {response.status_code}")
 
             break
 
@@ -162,7 +164,7 @@ def _find_ready_process_runs(
 
         # stop if there’s no next page
         if not data.get("next"):
-            print("✅ Finished scanning all pages for process runs.")
+            logging.info("Finished scanning all pages for process runs.")
 
             break
 

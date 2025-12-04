@@ -2,6 +2,8 @@
 
 import os
 
+import logging
+
 from automation_server_client._models import WorkItem
 
 from mbu_solteqtand_shared_components.database.db_handler import SolteqTandDatabase
@@ -26,18 +28,18 @@ def main(workitems):
 
         if citizen_bookings:
             if len(citizen_bookings) > 1:
-                print(f"Citizen {citizen_cpr} has more than 1 booking with aftaletype 'Z - 22 år - Borger fyldt 22 år'!")
+                logging.info(f"Citizen {citizen_cpr} has more than 1 booking with aftaletype 'Z - 22 år - Borger fyldt 22 år'!")
 
                 item.fail(message="Borgeren har mere end 1 aftale med aftaletype 'Z - 22 år - Borger fyldt 22 år'!")
 
             else:
                 if citizen_bookings[0].get("Status") in ("632", "634"):
-                    print(f"Faglig vurdering has been completed for citizen {citizen_cpr} - Updating workitem status...")
+                    logging.info(f"Faglig vurdering has been completed for citizen {citizen_cpr} - Updating workitem status...")
 
                     item.update_status(status="new", message="Status opdateret af service")
 
                 else:
-                    print(f"Faglig vurdering not yet completed for citizen {citizen_cpr} - leaving workitem as is.")
+                    logging.info(f"Faglig vurdering not yet completed for citizen {citizen_cpr} - leaving workitem as is.")
 
 
 def _check_if_faglig_vurdering_udfoert(db_handler: SolteqTandDatabase, cpr: str):

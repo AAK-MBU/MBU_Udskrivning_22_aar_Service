@@ -45,17 +45,18 @@ def main_loop():
     while running:
         try:
             # Step 1
-            logging.info("Step 1 → Checking 'faglig_vurdering_udfoert' workqueue...")
+            logging.info("Step 1 - Checking 'faglig_vurdering_udfoert' workqueue...")
             workqueue_name = "tan.udskrivning22.faglig_vurdering_udfoert"
 
             workqueue = helper_functions.fetch_workqueue(workqueue_name)
             workitems = helper_functions.fetch_workqueue_workitems(workqueue)
 
+            logging.info("before faglig main()")
             faglig_vurdering_udfoert.main(workitems)
             logging.info("Step 1 DONE.")
 
             # Step 2
-            logging.info("Step 2 → Checking formular submissions...")
+            logging.info("Step 2 - Checking formular submissions...")
             form_results = get_forms.get_forms()
             logging.info(f"Found {len(form_results)} forms.")
 
@@ -76,7 +77,7 @@ def main_loop():
             logging.info("Step 2 DONE.")
 
             # Step 3
-            logging.info("Step 3 → Processing final queue...")
+            logging.info("Step 3 - Processing final queue...")
             add_to_final_queue.main()
             logging.info("Step 3 DONE.")
 
