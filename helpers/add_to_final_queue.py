@@ -32,7 +32,7 @@ def main():
         elif name == "Samtykke":
             samtykke_step_id = int(step.get("id"))
 
-        elif name == "Journal og røntgen afleveret og journaliseret":
+        elif name == "Journalmateriale sendt og journaliseret":
             journal_og_roentgen_afleveret_og_journaliseret_step_id = int(step.get("id"))
 
         if faglig_vurdering_step_id and samtykke_step_id and journal_og_roentgen_afleveret_og_journaliseret_step_id:
